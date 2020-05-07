@@ -1,0 +1,39 @@
+- path: /
+  value: |
+    {"result": "success"}
+- path: /search
+  value: '[]'
+- path: /test/<string:id>
+  value:
+    jq: |
+      {"id": .request.args.id}
+- path: /query
+  value: '[]'
+- path: /annotations
+  methods:
+    - post
+  upstream:
+    url:
+      jq: |
+        "https://" +
+        ( .env.GITLAB_INSTANCE) +
+        "/api/v4/projects/" +
+        ( .request.json.annotation.query | fromjson | .project_id | tostring) +
+        "/deployments?environment=" +
+        ( .request.json.annotation.query | fromjson | .environment ) +
+        "&order_by=created_at&sort=desc&per_page=1000"
+    headers:
+      private-token:
+        jq: .env.GITLAB_PRIVATE_TOKEN
+    method: get
+  transformations:
+    default:
+      body:
+        jq: |
+          [ .response.json | .[] | select(.deployable.tag) |
+            {
+              "text": .ref,
+              "time": (.created_at | .[:19] + "Z" | fromdateiso8601 * 1000),
+              "tags": ["deployer:" + .user.name, "status:" + .deployable.status]
+            }
+          ]

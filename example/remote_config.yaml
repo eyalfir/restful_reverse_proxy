@@ -1,0 +1,28 @@
+/:
+  value: |
+    {"result": "success"}
+
+/search:
+  value: '[]'
+
+/query:
+  value: '[]'
+
+/annotations:
+  methods:
+    - post
+  upstream:
+    url: https://$GITLAB_INSTANCE/api/v4/projects/$PROJECT_ID/deployments?environment=$ENVIRONMENT&order_by=created_at&sort=desc
+    headers:
+      private-token: $GITLAB_PRIVATE_TOKEN
+    method: get
+  transformations:
+    default:
+      jq: |
+        [ .[] | select(.deployable.tag) |
+          {
+            "text": .ref,
+            "time": (.created_at | .[:19] + "Z" | fromdateiso8601 * 1000),
+            "tags": ["intel", "deployer:" + .user.name, "status:" + .deployable.status]
+          }
+        ]
