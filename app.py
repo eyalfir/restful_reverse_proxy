@@ -78,6 +78,8 @@ for route in configuration:
         context['request']['args'] = dict(request.args)
         context['request']['args'].update(kwargs)
         context['request']['body'] = request.get_data().decode('utf-8')
+        logging.debug('body:')
+        logging.debug(str(context['request']['body']))
         context['request']['json'] = json_try(context['request']['body'])
         context['request']['content_type'] = request.content_type
         context['request']['method'] = str(request.method)
