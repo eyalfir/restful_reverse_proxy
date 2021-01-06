@@ -10,7 +10,7 @@ import logging
 logging.basicConfig(stream=sys.stdout,
                     format='%(asctime)s | %(levelname)-8.8s | %(filename)s | %(process)d | %(message).10000s',
                     datefmt='%Y/%m/%d %H:%M:%S',
-                    level=logging.DEBUG if int(os.getenv('FLASK_DEBUG', '')) else logging.INFO)
+                    level=logging.DEBUG if int(os.getenv('FLASK_DEBUG', '0')) else logging.INFO)
 
 CORS_HEADER={'Access-Control-Allow-Origin': '*'}
 app = Flask(__name__)
@@ -53,6 +53,9 @@ def get_response(upstream_config, context):
     content_type = upstream_config.get('content_type', context['request']['content_type'])
     headers = {x: transform_object(y, context) for x, y in config.get('headers', {}).items()}
     headers['Content-type'] = content_type
+    if logging.getLogger().level <= logging.DEBUG:
+        logging.debug('context is:')
+        json.dump(context, sys.stdout, indent=2)
     logging.debug('url is %s', url)
     logging.debug('method is %s', method)
     logging.debug('headers is %s', headers)
@@ -82,12 +85,16 @@ for route in configuration:
         logging.debug(str(context['request']['body']))
         context['request']['json'] = json_try(context['request']['body'])
         context['request']['content_type'] = request.content_type
+        context['request']['headers'] = dict(request.headers)
         context['request']['method'] = str(request.method)
         if 'upstream' in config:
             resp = get_response(config['upstream'], context)
             context['response'] = {}
             context['response']['body'] = resp.text
-            context['response']['json'] = resp.json()
+            try:
+                context['response']['json'] = resp.json()
+            except json.JSONDecodeError:
+                pass
             context['response']['status_code'] = resp.status_code
             context['response']['content_type'] = resp.headers.get('Content-Type', 'plain/text')
         else:
