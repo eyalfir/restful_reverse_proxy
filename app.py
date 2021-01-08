@@ -51,7 +51,9 @@ def get_response(upstream_config, context):
     method = upstream_config.get('method', 'get')
     body = transform_object(upstream_config['body'], context) if 'body' in upstream_config else context['request']['body']
     content_type = upstream_config.get('content_type', context['request']['content_type'])
-    headers = {x: transform_object(y, context) for x, y in config.get('headers', {}).items()}
+    headers = {x: transform_object(y, context) for x, y in upstream_config.get('headers', {}).items()}
+    params = dict(context['request']['args'])
+    params.update({x: transform_object(y, context) for x, y in upstream_config.get('args', {}).items()})
     headers['Content-type'] = content_type
     if logging.getLogger().level <= logging.DEBUG:
         logging.debug('context is:')
@@ -60,7 +62,8 @@ def get_response(upstream_config, context):
     logging.debug('method is %s', method)
     logging.debug('headers is %s', headers)
     logging.debug('body is %s', str(body))
-    req = requests.Request(method=method, url=url, headers=headers, data=body)
+    logging.debug('params is %s', str(params))
+    req = requests.Request(method=method, params=params, url=url, headers=headers, data=body)
     resp = session.send(req.prepare())
     logging.debug('got status %s from upstream', resp.status_code)
     return resp
